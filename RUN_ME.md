@@ -4,14 +4,14 @@ Since Java and Maven are not available in the current environment, I have set up
 
 ## 🚀 Running the App
 
-### 1. Frontend (Running)
-The frontend has been initialized and started. It should be running at:
-- **URL**: [http://localhost:5173](http://localhost:5173)
+### 1. Frontend (Next.js - Premium UI)
+The new frontend is running at:
+- **URL**: [http://localhost:3000](http://localhost:3000)
 
-### 2. Backend (Running)
-I have started a lightweight Node.js server that mocks the API endpoints.
-- **URL**: [http://localhost:8080](http://localhost:8080)
-- **Status**: Active
+### 2. Backend (NestJS - Professional API)
+The new enterprise-grade backend is running at:
+- **URL**: [http://localhost:4000/api](http://localhost:4000/api)
+- **Status**: Active (with Database & Auth)
 
 ## ⚠️ Limitations
 - This is a **Mock Backend**. It does not execute real Docker containers or advanced AI analysis.
