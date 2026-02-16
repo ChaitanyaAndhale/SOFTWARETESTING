@@ -1,47 +1,76 @@
 import { Injectable, Logger } from '@nestjs/common';
-import Docker from 'dockerode';
 import * as fs from 'fs';
 import * as path from 'path';
+import AdmZip from 'adm-zip';
+import { spawn } from 'child_process';
 
 @Injectable()
 export class PlaywrightService {
     private readonly logger = new Logger(PlaywrightService.name);
-    private docker: Docker;
 
-    constructor() {
-        this.docker = new Docker({ socketPath: '//./pipe/docker_engine' }); // Windows pipe
-    }
+    constructor() { }
 
-    async runTest(testRunId: string, url: string, scriptContent: string) {
-        this.logger.log(`Starting Playwright test for ${testRunId}`);
+    async runTest(testRunId: string, fileName: string) {
+        this.logger.log(`Starting Playwright test for ${testRunId} with file ${fileName}`);
 
-        // 1. Create a temporary test file
+        const uploadPath = path.resolve('uploads', fileName);
         const testDir = path.resolve('temp', testRunId);
-        if (!fs.existsSync(testDir)) {
-            fs.mkdirSync(testDir, { recursive: true });
-        }
-        fs.writeFileSync(path.join(testDir, 'test.spec.ts'), scriptContent);
 
-        // 2. Define Docker container config
-        const containerConfig = {
-            Image: 'mcr.microsoft.com/playwright:v1.40.0-jammy',
-            Cmd: ['npx', 'playwright', 'test'],
-            Tty: true,
-            HostConfig: {
-                Binds: [`${testDir}:/tests`],
-                AutoRemove: true,
-            },
-            WorkingDir: '/tests',
-        };
-
+        // 1. Unzip the project
         try {
-            // 3. Run Container (Mock implementation for now)
-            // await this.docker.createContainer(containerConfig).then(container => container.start());
-            this.logger.log('Docker container started (mock)');
-            return { status: 'STARTED' };
+            if (!fs.existsSync(testDir)) {
+                fs.mkdirSync(testDir, { recursive: true });
+            }
+            if (!fs.existsSync(uploadPath)) {
+                throw new Error(`Project file not found: ${uploadPath}`);
+            }
+
+            const zip = new AdmZip(uploadPath);
+            zip.extractAllTo(testDir, true);
+            this.logger.log(`Extracted project to ${testDir}`);
         } catch (error) {
-            this.logger.error('Failed to start Docker container', error);
+            this.logger.error('Failed to unzip project', error);
             throw error;
         }
+
+        // 2. Install dependencies and Run Test
+        return new Promise<{ status: string; logs: string; qualityScore?: number }>((resolve, reject) => {
+            const child = spawn('cmd.exe', ['/c', 'npm install && npx playwright test'], {
+                cwd: testDir,
+                // stdio: 'pipe', // Default
+                shell: true
+            });
+
+            let logs = '';
+
+            child.stdout.on('data', (data) => {
+                const chunk = data.toString();
+                logs += chunk;
+                this.logger.log(chunk);
+            });
+
+            child.stderr.on('data', (data) => {
+                const chunk = data.toString();
+                logs += chunk;
+                this.logger.error(chunk);
+            });
+
+            child.on('close', (code) => {
+                this.logger.log(`Test process exited with code ${code}`);
+                // Cleanup
+                // fs.rmSync(testDir, { recursive: true, force: true });
+
+                if (code === 0) {
+                    resolve({ status: 'COMPLETED', logs, qualityScore: 100 });
+                } else {
+                    resolve({ status: 'FAILED', logs }); // Resolve as FAILED, don't reject promise to avoid crashing service
+                }
+            });
+
+            child.on('error', (err) => {
+                logs += `\nSpawn error: ${err.message}`;
+                resolve({ status: 'FAILED', logs });
+            });
+        });
     }
 }

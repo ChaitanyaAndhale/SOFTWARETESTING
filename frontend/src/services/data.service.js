@@ -1,12 +1,12 @@
 import axios from 'axios';
 import AuthService from './auth.service';
 
-const API_URL = 'http://localhost:8080/api/';
+const API_URL = 'http://localhost:4000/api/';
 
 const authHeader = () => {
     const user = AuthService.getCurrentUser();
-    if (user && user.jwt) {
-        return { Authorization: 'Bearer ' + user.jwt };
+    if (user && user.access_token) {
+        return { Authorization: 'Bearer ' + user.access_token };
     } else {
         return {};
     }
@@ -31,11 +31,11 @@ const getProjects = () => {
 };
 
 const runTest = (projectId) => {
-    return axios.post(API_URL + `tests/run/${projectId}`, {}, { headers: authHeader() });
+    return axios.post(API_URL + `test-runs/${projectId}`, {}, { headers: authHeader() });
 };
 
 const getTestRuns = (projectId) => {
-    return axios.get(API_URL + `tests/project/${projectId}`, { headers: authHeader() });
+    return axios.get(API_URL + `test-runs/project/${projectId}`, { headers: authHeader() });
 };
 
 const DataService = {

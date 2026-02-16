@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -11,7 +11,7 @@ model User {
   id        String   @id @default(uuid())
   username  String   @unique
   password  String
-  role      String   @default("DEVELOPER") // Changed from Enum to String for SQLite
+  role      Role     @default(DEVELOPER)
   projects  Project[]
   createdAt DateTime @default(now())
 }
@@ -31,12 +31,23 @@ model TestRun {
   id           String   @id @default(uuid())
   project      Project  @relation(fields: [projectId], references: [id])
   projectId    String
-  status       String   @default("PENDING") // Changed from Enum to String for SQLite
+  status       Status   @default(PENDING)
   qualityScore Int?
-  logs         String? 
-  report       String? // SQLite doesn't support Json type natively in Prisma (it maps to string sometimes, but safer to use String if issues arise. Actually Json is supported but serialized as text. Let's keep Json if possible, but if it fails, fallback to String. Prisma supports Json in SQLite.)
+  logs         String?  @db.Text
+  report       Json?    
   startTime    DateTime @default(now())
   endTime      DateTime?
 }
 
-// Enums removed as SQLite doesn't support them natively
+enum Role {
+  DEVELOPER
+  TESTER
+  ADMIN
+}
+
+enum Status {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}

@@ -1,4 +1,4 @@
 {
-    "buildCommand": "npx turbo run build --filter=web",
-    "outputDirectory": "apps/frontend/out"
+    "buildCommand": "npx turbo run build --filter=legacy-frontend",
+    "outputDirectory": "frontend/dist"
 }

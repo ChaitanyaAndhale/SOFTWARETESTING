@@ -17,9 +17,10 @@ const Login = () => {
         setMessage("");
         setLoading(true);
 
-        AuthService.login(username, password).then(
+        login(username, password).then(
             () => {
-                window.location.reload();
+                navigate("/");
+                // window.location.reload(); // Context will update, no need to reload
             },
             (error) => {
                 const resMessage =

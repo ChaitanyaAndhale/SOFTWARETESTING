@@ -8,6 +8,7 @@ const Projects = () => {
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
     const [message, setMessage] = useState("");
+    const [testStatuses, setTestStatuses] = useState({});
 
     useEffect(() => {
         loadProjects();
@@ -16,11 +17,28 @@ const Projects = () => {
     const loadProjects = () => {
         DataService.getProjects().then(
             (response) => {
-                setProjects(response.data);
+                const projectsData = response.data;
+                setProjects(projectsData);
+                // Fetch status for each project
+                projectsData.forEach(project => loadProjectStatus(project.id));
             },
             (error) => {
                 console.log(error);
             }
+        );
+    }
+
+    const loadProjectStatus = (projectId) => {
+        DataService.getTestRuns(projectId).then(
+            (response) => {
+                const runs = response.data;
+                if (runs && runs.length > 0) {
+                    // Get latest run
+                    const latestRun = runs.sort((a, b) => new Date(b.startTime) - new Date(a.startTime))[0];
+                    setTestStatuses(prev => ({ ...prev, [projectId]: latestRun }));
+                }
+            },
+            (err) => console.log(err)
         );
     }
 
@@ -53,14 +71,36 @@ const Projects = () => {
     }
 
     const handleRunTest = (projectId) => {
+        setTestStatuses(prev => ({ ...prev, [projectId]: { status: 'STARTING...' } }));
         DataService.runTest(projectId).then(
             (response) => {
-                alert("Test started! Status: " + response.data.status);
+                // alert("Test started! Status: " + response.data.status);
+                loadProjectStatus(projectId); // Update immediately
+
+                // Poll for updates a few times
+                const interval = setInterval(() => {
+                    loadProjectStatus(projectId);
+                }, 2000);
+
+                // Stop polling after 10 seconds (mock test takes 5s)
+                setTimeout(() => clearInterval(interval), 12000);
             },
             (error) => {
                 alert("Failed to start test: " + error.message);
+                setTestStatuses(prev => ({ ...prev, [projectId]: { status: 'ERROR' } }));
             }
         )
+    }
+
+    const getStatusColor = (status) => {
+        if (!status) return "text-gray-500";
+        switch (status) {
+            case 'COMPLETED': return "text-green-600 font-bold";
+            case 'FAILED': return "text-red-600 font-bold";
+            case 'RUNNING': return "text-blue-600 font-bold animate-pulse";
+            case 'PENDING': return "text-yellow-600 font-bold";
+            default: return "text-gray-600";
+        }
     }
 
     return (
@@ -105,7 +145,7 @@ const Projects = () => {
                                 <tr>
                                     <th className="px-6 py-3 text-xs font-medium leading-4 tracking-wider text-left text-gray-500 uppercase border-b border-gray-200 bg-gray-50">Name</th>
                                     <th className="px-6 py-3 text-xs font-medium leading-4 tracking-wider text-left text-gray-500 uppercase border-b border-gray-200 bg-gray-50">Description</th>
-                                    <th className="px-6 py-3 text-xs font-medium leading-4 tracking-wider text-left text-gray-500 uppercase border-b border-gray-200 bg-gray-50">Uploaded At</th>
+                                    <th className="px-6 py-3 text-xs font-medium leading-4 tracking-wider text-left text-gray-500 uppercase border-b border-gray-200 bg-gray-50">Last Run</th>
                                     <th className="px-6 py-3 border-b border-gray-200 bg-gray-50">Action</th>
                                 </tr>
                             </thead>
@@ -119,7 +159,14 @@ const Projects = () => {
                                             <div className="text-sm leading-5 text-gray-500">{project.description}</div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-no-wrap border-b border-gray-200">
-                                            <div className="text-sm leading-5 text-gray-500">{new Date(project.createdAt).toLocaleDateString()}</div>
+                                            {testStatuses[project.id] ? (
+                                                <div className={`text-sm ${getStatusColor(testStatuses[project.id].status)}`}>
+                                                    {testStatuses[project.id].status}
+                                                    {testStatuses[project.id].qualityScore && ` (Score: ${testStatuses[project.id].qualityScore})`}
+                                                </div>
+                                            ) : (
+                                                <div className="text-sm text-gray-400">No runs yet</div>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-sm font-medium leading-5 text-right whitespace-no-wrap border-b border-gray-200">
                                             <button onClick={() => handleRunTest(project.id)} className="text-indigo-600 hover:text-indigo-900 focus:outline-none underline">Run Test</button>
